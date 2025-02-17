@@ -20,10 +20,6 @@ const User = sequelize.define('User', {
     }
 });
 
-// Хешируем пароль перед сохранением
-User.beforeCreate(async (user) => {
-    user.password = await bcrypt.hash(user.password, 10);
-});
 
 // Определяем модель сообщений
 const Message = sequelize.define('Message', {
