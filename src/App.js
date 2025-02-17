@@ -12,7 +12,7 @@ function App() {
     const [message, setMessage] = useState('');
 
     const registerUser = async () => {
-        const response = await fetch('http://85.192.25.173:8080/register', {
+        const response = await fetch('ws://85.192.25.173:8080/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
