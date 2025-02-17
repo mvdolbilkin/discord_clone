@@ -5,8 +5,9 @@ const { sequelize, User, Message } = require('./database');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-const SECRET_KEY = 'your_secret_key'; // Замените на более надежный ключ
-
+const SECRET_KEY = 'c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed961b381e6b2d3082eb7879429a616a46df67d6ce76d5d647c29c6b989bbb4c04b8d64'; // Замените на более надежный ключ
+const cors = require('cors');
+app.use(cors());
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
