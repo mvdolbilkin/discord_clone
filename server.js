@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { sequelize, User, Message } = require('./database');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt'); // вместо bcryptjs
 
 const SECRET_KEY = 'c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed961b381e6b2d3082eb7879429a616a46df67d6ce76d5d647c29c6b989bbb4c04b8d64'; // Замените на более надежный ключ
 
@@ -36,7 +36,7 @@ app.post('/register', async (req, res) => {
 
         console.log('Пароль до хеширования:', password); // Проверяем, есть ли пароль
 
-        const hashedPassword = await bcrypt.hash(String(password), 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
         console.log('Пароль после хеширования:', hashedPassword);
 
         const newUser = await User.create({ username, password: hashedPassword });
