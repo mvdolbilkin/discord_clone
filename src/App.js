@@ -1,85 +1,81 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
 
-const API_URL = "http://localhost:5000";
-const ws = new WebSocket("ws://85.192.25.173:8080");
+// Подключаемся к серверу WebSocket
+const socket = io('http://localhost:5000');
 
-export default function Chat() {
-  const [messages, setMessages] = useState([]);
-  const [message, setMessage] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
-  const [token, setToken] = useState("");
+function App() {
+    const [username, setUsername] = useState('');
+    const [isRegistered, setIsRegistered] = useState(false);
+    const [messages, setMessages] = useState([]);
+    const [message, setMessage] = useState('');
 
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
+    const registerUser = () => {
+        if (username.trim()) {
+            socket.emit('setUsername', username);
+        }
+    };
 
-  useEffect(() => {
-    socket.on('registrationSuccess', (data) => {
-        console.log('Регистрация успешна:', data.username);
-        setIsRegistered(true);
-    });
+    useEffect(() => {
+        socket.on('registrationSuccess', (data) => {
+            console.log('Регистрация успешна:', data.username);
+            setIsRegistered(true);
+        });
 
-    socket.on('registrationError', (data) => {
-        console.error('Ошибка регистрации:', data.message);
-    });
-}, []);
+        socket.on('registrationError', (data) => {
+            console.error('Ошибка регистрации:', data.message);
+        });
 
-  const register = async () => {
-    const response = await fetch(`${API_URL}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await response.json();
-    alert(data.message);
-  };
+        socket.on('message', (data) => {
+            setMessages((prev) => [...prev, data]);
+        });
 
-  const login = async () => {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await response.json();
-    if (data.token) {
-      setToken(data.token);
-      setLoggedIn(true);
-    } else {
-      alert("Ошибка входа");
-    }
-  };
+        return () => {
+            socket.off('registrationSuccess');
+            socket.off('registrationError');
+            socket.off('message');
+        };
+    }, []);
 
-  const sendMessage = () => {
-    if (message.trim() !== "" && loggedIn) {
-      ws.send(JSON.stringify({ type: "message", username, message }));
-      setMessage("");
-    }
-  };
+    const sendMessage = () => {
+        if (message.trim()) {
+            socket.emit('message', { text: message });
+            setMessage('');
+        }
+    };
 
-  return (
-    <div>
-      {!loggedIn ? (
+    return (
         <div>
-          <h2>Регистрация / Вход</h2>
-          <input placeholder="Имя пользователя" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button onClick={register}>Регистрация</button>
-          <button onClick={login}>Вход</button>
+            {!isRegistered ? (
+                <div>
+                    <h1>Введите имя пользователя</h1>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Ваше имя"
+                    />
+                    <button onClick={registerUser}>Зарегистрироваться</button>
+                </div>
+            ) : (
+                <div>
+                    <h1>Чат</h1>
+                    <div>
+                        {messages.map((msg, index) => (
+                            <p key={index}><strong>{msg.username}:</strong> {msg.text}</p>
+                        ))}
+                    </div>
+                    <input
+                        type="text"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Введите сообщение"
+                    />
+                    <button onClick={sendMessage}>Отправить</button>
+                </div>
+            )}
         </div>
-      ) : (
-        <div>
-          <h2>Чат</h2>
-          <div>
-            {messages.map((msg, index) => (
-              <div key={index}>{msg}</div>
-            ))}
-          </div>
-          <input value={message} onChange={(e) => setMessage(e.target.value)} />
-          <button onClick={sendMessage}>Отправить</button>
-        </div>
-      )}
-    </div>
-  );
+    );
 }
+
+export default App;
