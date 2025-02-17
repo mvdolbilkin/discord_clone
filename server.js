@@ -22,9 +22,12 @@ app.use(express.json()); // Разбираем JSON-запросы
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
     try {
-        console.log('Полученные данные:', req.body); // Лог входящих данных
+        console.log('Полученные данные:', req.body); // Логируем входящие данные
 
         const { username, password } = req.body;
+
+        console.log('username:', username);
+        console.log('password:', password);
 
         if (!username || !password) {
             console.error('Ошибка: имя пользователя или пароль отсутствуют');
