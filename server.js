@@ -22,22 +22,20 @@ app.use(express.json()); // Разбираем JSON-запросы
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
     try {
-        console.log('Полученные данные:', req.body); // Логируем входящие данные
+        console.log('Полученные данные при регистрации:', req.body);
 
         const { username, password } = req.body;
-
-        console.log('username:', username);
-        console.log('password:', password);
-
         if (!username || !password) {
-            console.error('Ошибка: имя пользователя или пароль отсутствуют');
             return res.status(400).json({ message: 'Введите имя пользователя и пароль' });
         }
 
-        console.log('Пароль до хеширования:', password); // Проверяем, есть ли пароль
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Пользователь уже существует' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        console.log('Пароль после хеширования:', hashedPassword);
+        console.log('Хеш пароля при регистрации:', hashedPassword);
 
         const newUser = await User.create({ username, password: hashedPassword });
 
@@ -54,26 +52,20 @@ app.post('/login', async (req, res) => {
         console.log('Полученные данные при входе:', req.body);
 
         const { username, password } = req.body;
-
         if (!username || !password) {
-            console.error('Ошибка: отсутствует имя пользователя или пароль');
             return res.status(400).json({ message: 'Введите имя пользователя и пароль' });
         }
 
         const user = await User.findOne({ where: { username } });
-
-        console.log('Найденный пользователь:', user ? user.username : 'Не найден');
-
         if (!user) {
             return res.status(400).json({ message: 'Пользователь не найден' });
         }
 
-        console.log('Пароль в базе:', user.password);
+        console.log('Хеш пароля в базе:', user.password);
         console.log('Введенный пароль:', password);
 
         const isValidPassword = await bcrypt.compare(password, user.password);
-
-        console.log('Результат сравнения паролей:', isValidPassword);
+        console.log('Результат проверки пароля:', isValidPassword);
 
         if (!isValidPassword) {
             return res.status(400).json({ message: 'Неверные учетные данные' });
