@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const ws = new WebSocket("ws://localhost:8080"); // Подключение к WebSocket серверу
+const ws = new WebSocket("http://85.192.25.173:8080"); // Используем публичный сервер
+ // Подключение к WebSocket серверу
 
 export default function Chat() {
   const [messages, setMessages] = useState([]);
