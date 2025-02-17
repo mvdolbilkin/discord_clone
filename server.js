@@ -22,6 +22,8 @@ app.use(express.json()); // Разбираем JSON-запросы
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
     try {
+        console.log('Полученные данные:', req.body); // Логируем входящие данные
+
         const { username, password } = req.body;
 
         if (!username || !password) {
@@ -33,7 +35,11 @@ app.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'Пользователь уже существует' });
         }
 
+        console.log('Пароль до хеширования:', password); // Проверяем, что пароль передается
+
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log('Пароль после хеширования:', hashedPassword);
+
         const newUser = await User.create({ username, password: hashedPassword });
 
         res.status(201).json({ message: 'Пользователь зарегистрирован' });
