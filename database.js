@@ -1,9 +1,10 @@
 const { Sequelize, DataTypes } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
-// Создаем подключение к SQLite
+// Подключаемся к SQLite
 const sequelize = new Sequelize({
     dialect: 'sqlite',
-    storage: 'database.sqlite' // Файл базы данных
+    storage: 'database.sqlite'
 });
 
 // Определяем модель пользователя
@@ -12,7 +13,16 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false
     }
+});
+
+// Хешируем пароль перед сохранением
+User.beforeCreate(async (user) => {
+    user.password = await bcrypt.hash(user.password, 10);
 });
 
 // Определяем модель сообщений

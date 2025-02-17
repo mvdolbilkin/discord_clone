@@ -1,41 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 
-// Подключаемся к серверу WebSocket
-const socket = io('http://85.192.25.173:5000', { transports: ['websocket', 'polling'] });
+const socket = io('http://85.192.25.173:8080', { transports: ['websocket', 'polling'] });
 
 function App() {
     const [username, setUsername] = useState('');
-    const [isRegistered, setIsRegistered] = useState(false);
+    const [password, setPassword] = useState('');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [token, setToken] = useState(null);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
 
-    const registerUser = () => {
-        if (username.trim()) {
-            socket.emit('setUsername', username);
+    const registerUser = async () => {
+        const response = await fetch('http://85.192.25.173:8080/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        alert(data.message);
+    };
+
+    const loginUser = async () => {
+        const response = await fetch('http://85.192.25.173:8080/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            setToken(data.token);
+            setIsAuthenticated(true);
+            alert('Вход выполнен успешно');
+        } else {
+            alert(data.message);
         }
     };
 
     useEffect(() => {
-        socket.on('registrationSuccess', (data) => {
-            console.log('Регистрация успешна:', data.username);
-            setIsRegistered(true);
-        });
-
-        socket.on('registrationError', (data) => {
-            console.error('Ошибка регистрации:', data.message);
-        });
-
+        if (isAuthenticated) {
+            socket.emit('setUsername', username);
+        }
         socket.on('message', (data) => {
             setMessages((prev) => [...prev, data]);
         });
 
         return () => {
-            socket.off('registrationSuccess');
-            socket.off('registrationError');
             socket.off('message');
         };
-    }, []);
+    }, [isAuthenticated]);
 
     const sendMessage = () => {
         if (message.trim()) {
@@ -46,16 +59,23 @@ function App() {
 
     return (
         <div>
-            {!isRegistered ? (
+            {!isAuthenticated ? (
                 <div>
-                    <h1>Введите имя пользователя</h1>
+                    <h1>Регистрация / Вход</h1>
                     <input
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Ваше имя"
+                        placeholder="Введите имя пользователя"
+                    />
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Введите пароль"
                     />
                     <button onClick={registerUser}>Зарегистрироваться</button>
+                    <button onClick={loginUser}>Войти</button>
                 </div>
             ) : (
                 <div>
