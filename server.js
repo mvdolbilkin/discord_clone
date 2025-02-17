@@ -7,18 +7,17 @@ let messageHistory = [];
 server.on("connection", (ws) => {
   clients.add(ws);
   console.log("Новый клиент подключен");
-  
-  // Отправка истории сообщений новому клиенту
+
   ws.send(JSON.stringify({ type: "history", messages: messageHistory }));
 
   ws.on("message", (message) => {
     const data = JSON.parse(message);
-    
+
     if (data.type === "message") {
       const formattedMessage = `${data.username}: ${data.message}`;
       messageHistory.push(formattedMessage);
-      if (messageHistory.length > 50) messageHistory.shift(); // Ограничение истории
-      
+      if (messageHistory.length > 50) messageHistory.shift();
+
       clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(JSON.stringify({ type: "message", username: data.username, message: data.message }));
