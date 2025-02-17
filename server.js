@@ -21,9 +21,13 @@ app.use(express.json()); // Разбираем JSON-запросы
 
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-
     try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ message: 'Введите имя пользователя и пароль' });
+        }
+
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
             return res.status(400).json({ message: 'Пользователь уже существует' });
@@ -34,7 +38,8 @@ app.post('/register', async (req, res) => {
 
         res.status(201).json({ message: 'Пользователь зарегистрирован' });
     } catch (error) {
-        res.status(500).json({ message: 'Ошибка сервера', error });
+        console.error('Ошибка регистрации:', error);
+        res.status(500).json({ message: 'Ошибка сервера', error: error.toString() });
     }
 });
 
