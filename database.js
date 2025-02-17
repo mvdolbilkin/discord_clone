@@ -1,5 +1,5 @@
 const { Sequelize, DataTypes } = require('sequelize');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt'); // Используем bcrypt вместо bcryptjs
 
 // Подключаемся к SQLite
 const sequelize = new Sequelize({
