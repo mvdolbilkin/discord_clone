@@ -9,19 +9,22 @@ export default function Chat() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
   const [token, setToken] = useState("");
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
   useEffect(() => {
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "message") {
-        setMessages((prev) => [...prev, `${data.username}: ${data.message}`]);
-      }
-    };
-  }, []);
+    socket.on('registrationSuccess', (data) => {
+        console.log('Регистрация успешна:', data.username);
+        setIsRegistered(true);
+    });
+
+    socket.on('registrationError', (data) => {
+        console.error('Ошибка регистрации:', data.message);
+    });
+}, []);
 
   const register = async () => {
     const response = await fetch(`${API_URL}/register`, {

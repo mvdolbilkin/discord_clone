@@ -18,9 +18,17 @@ io.on('connection', (socket) => {
     console.log(`Пользователь подключился: ${socket.id}`);
 
     socket.on('setUsername', async (username) => {
-        const user = await User.findOrCreate({ where: { username } });
-        socket.username = username;
-        io.emit('userConnected', { id: socket.id, username });
+        try {
+            const [user, created] = await User.findOrCreate({ where: { username } });
+            socket.username = username;
+            io.emit('userConnected', { id: socket.id, username });
+    
+            // Отправляем подтверждение клиенту
+            socket.emit('registrationSuccess', { username });
+        } catch (error) {
+            console.error('Ошибка регистрации:', error);
+            socket.emit('registrationError', { message: 'Ошибка регистрации' });
+        }
     });
 
     // Отправка и получение сообщений
