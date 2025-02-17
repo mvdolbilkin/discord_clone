@@ -22,20 +22,16 @@ app.use(express.json()); // Разбираем JSON-запросы
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
     try {
-        console.log('Полученные данные:', req.body); // Логируем входящие данные
+        console.log('Полученные данные:', req.body); // Лог входящих данных
 
         const { username, password } = req.body;
 
         if (!username || !password) {
+            console.error('Ошибка: имя пользователя или пароль отсутствуют');
             return res.status(400).json({ message: 'Введите имя пользователя и пароль' });
         }
 
-        const existingUser = await User.findOne({ where: { username } });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Пользователь уже существует' });
-        }
-
-        console.log('Пароль до хеширования:', password); // Проверяем, что пароль передается
+        console.log('Пароль до хеширования:', password); // Проверяем, есть ли пароль
 
         const hashedPassword = await bcrypt.hash(password, 10);
         console.log('Пароль после хеширования:', hashedPassword);
