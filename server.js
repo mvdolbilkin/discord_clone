@@ -50,15 +50,31 @@ app.post('/register', async (req, res) => {
 
 // 📌 **Вход пользователя**
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-
     try {
-        const user = await User.findOne({ where: { username } });
-        if (!user) {
-            return res.status(400).json({ message: 'Неверные учетные данные' });
+        console.log('Полученные данные при входе:', req.body);
+
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            console.error('Ошибка: отсутствует имя пользователя или пароль');
+            return res.status(400).json({ message: 'Введите имя пользователя и пароль' });
         }
 
+        const user = await User.findOne({ where: { username } });
+
+        console.log('Найденный пользователь:', user ? user.username : 'Не найден');
+
+        if (!user) {
+            return res.status(400).json({ message: 'Пользователь не найден' });
+        }
+
+        console.log('Пароль в базе:', user.password);
+        console.log('Введенный пароль:', password);
+
         const isValidPassword = await bcrypt.compare(password, user.password);
+
+        console.log('Результат сравнения паролей:', isValidPassword);
+
         if (!isValidPassword) {
             return res.status(400).json({ message: 'Неверные учетные данные' });
         }
@@ -67,7 +83,8 @@ app.post('/login', async (req, res) => {
 
         res.status(200).json({ message: 'Успешный вход', token });
     } catch (error) {
-        res.status(500).json({ message: 'Ошибка сервера', error });
+        console.error('Ошибка входа:', error);
+        res.status(500).json({ message: 'Ошибка сервера', error: error.toString() });
     }
 });
 
