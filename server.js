@@ -36,7 +36,7 @@ app.post('/register', async (req, res) => {
 
         console.log('Пароль до хеширования:', password); // Проверяем, есть ли пароль
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(String(password), 10);
         console.log('Пароль после хеширования:', hashedPassword);
 
         const newUser = await User.create({ username, password: hashedPassword });
