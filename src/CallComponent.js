@@ -56,7 +56,15 @@ const CallComponent = ({ userId, targetUserId }) => {
     const startCall = async () => {
         const offer = await peerConnection.current.createOffer();
         await peerConnection.current.setLocalDescription(offer);
-        socket.emit("call-user", { to: targetUserId, from: userId, offer });
+        
+        console.log("📞 Отправляем вызов пользователю:", targetUserId);
+    
+        socket.emit("call-user", {
+            to: targetUserId,
+            from: userId,
+            offer
+        });
+    
         setIsCalling(true);
     };
 

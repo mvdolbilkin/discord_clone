@@ -190,8 +190,9 @@ io.on("connection", (socket) => {
         socket.join(`dialog_${dialogId}`);
         console.log(`📩 Пользователь ${socket.user.username} зашел в диалог ${dialogId}`);
     });
-
+    
     socket.on("call-user", (data) => {
+        console.log(`📞 Входящий вызов от ${data.from} → ${data.to}`);
         io.to(data.to).emit("incoming-call", {
             from: data.from,
             offer: data.offer,
@@ -199,6 +200,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("answer-call", (data) => {
+        console.log(`✅ Вызов принят ${data.to} → ${data.from}`);
         io.to(data.to).emit("call-answered", {
             answer: data.answer,
         });
