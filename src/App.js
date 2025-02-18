@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import { jwtDecode } from "jwt-decode";
+import CallComponent from './CallComponent';
 
 const API_URL = "https://discordclone.duckdns.org";
 const token = localStorage.getItem('token');
@@ -170,21 +171,21 @@ function App() {
                     <div style={{ width: '30%', borderRight: '1px solid gray', padding: '10px' }}>
                         <h3>🔹 Пользователи</h3>
                         <ul>
-                            {users.length > 0 ? (
-                                users.map(user => (
-                                    <li key={user.id} onClick={() => startChat(user.id)}>
-                                        {user.username}
-                                    </li>
-                                ))
-                            ) : (
-                                <p>Нет доступных пользователей</p>
-                            )}
-                        </ul>
+                    {users.map(user => (
+                        <li key={user.id}>
+                            {user.username}
+                            <button onClick={() => setActiveCallUser(user.id)}>📞</button>
+                        </li>
+                    ))}
+                </ul>
                         <button onClick={logout} style={{ marginTop: '10px' }}>Выйти</button>
                     </div>
 
                     {/* Чат справа */}
                     <div style={{ width: '70%', padding: '10px' }}>
+                    {activeCallUser && (
+                    <CallComponent socket={socket} userId={userId} targetUserId={activeCallUser} onEndCall={() => setActiveCallUser(null)} />
+                )}
                         {currentDialog ? (
                             <>
                                 <h3>💬 Диалог #{currentDialog}</h3>

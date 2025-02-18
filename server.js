@@ -191,6 +191,28 @@ io.on("connection", (socket) => {
         console.log(`📩 Пользователь ${socket.user.username} зашел в диалог ${dialogId}`);
     });
 
+    socket.on("call-user", (data) => {
+        io.to(data.to).emit("incoming-call", {
+            from: data.from,
+            offer: data.offer,
+        });
+    });
+
+    socket.on("answer-call", (data) => {
+        io.to(data.to).emit("call-answered", {
+            answer: data.answer,
+        });
+    });
+
+    socket.on("ice-candidate", (data) => {
+        io.to(data.to).emit("ice-candidate", {
+            candidate: data.candidate,
+        });
+    });
+
+    socket.on("end-call", (data) => {
+        io.to(data.to).emit("call-ended");
+    });
     socket.on("privateMessage", async (data) => {
         const { dialogId, text } = data;
 
