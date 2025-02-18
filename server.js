@@ -113,7 +113,19 @@ io.on('connection', (socket) => {
         socket.username = username;
         io.emit('userConnected', { id: socket.id, username });
     });
+// 📞 Обработка исходящего звонка
+    socket.on('callUser', (data) => {
+        console.log(`Звонок от ${socket.id} к другому пользователю`);
 
+        io.emit('incomingCall', { from: socket.id, signal: data.signal });
+    });
+
+    // 📞 Обработка принятия звонка
+    socket.on('answerCall', (data) => {
+        console.log(`Пользователь ${socket.id} принял звонок`);
+
+        io.emit('callAccepted', { signal: data.signal });
+    });
     socket.on('message', async (data) => {
         const message = await Message.create({ username: socket.username, text: data.text });
         io.emit('message', { username: message.username, text: message.text });
