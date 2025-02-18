@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3000"); // Адрес твоего сервера
+const socket = io("https://discordclone.duckdns.org"); // Адрес твоего сервера
 
 const CallComponent = ({ userId, targetUserId }) => {
     const [isCalling, setIsCalling] = useState(false);
