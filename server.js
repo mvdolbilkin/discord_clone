@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcrypt'); // Используем bcrypt вместо bcryptjs
-
+const { Op } = require('sequelize'); // ✅ Добавляем импорт Op
 const { sequelize, User, Message, Dialog } = require('./database');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
