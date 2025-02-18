@@ -16,6 +16,7 @@ function App() {
     const myVideo = useRef();
     const userVideo = useRef();
     const peerConnection = useRef(null);
+    const iceCandidatesQueue = useRef([]);
 
     useEffect(() => {
         if (token) {
@@ -29,10 +30,20 @@ function App() {
             });
 
             socket.on('callAccepted', async (signal) => {
-                console.log("✅ Звонок принят, устанавливаем RemoteDescription");
+                console.log("✅ Звонок принят, устанавливаем RemoteDescription", signal);
                 if (peerConnection.current) {
                     try {
+                        if (!signal || !signal.type) {
+                            console.error("❌ Ошибка: Неверный формат SDP-сигнала");
+                            return;
+                        }
                         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+
+                        // 🔹 Добавляем отложенные ICE-кандидаты
+                        while (iceCandidatesQueue.current.length > 0) {
+                            const candidate = iceCandidatesQueue.current.shift();
+                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
                     } catch (error) {
                         console.error("❌ Ошибка setRemoteDescription:", error);
                     }
@@ -40,13 +51,16 @@ function App() {
             });
 
             socket.on('iceCandidate', async (candidate) => {
-                if (peerConnection.current) {
+                console.log("✅ Получен ICE-кандидат", candidate);
+                if (peerConnection.current && peerConnection.current.remoteDescription) {
                     try {
-                        console.log("✅ Получен ICE-кандидат", candidate);
                         await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
                     } catch (error) {
                         console.error("❌ Ошибка addIceCandidate:", error);
                     }
+                } else {
+                    console.log("🟡 Ожидаем установки RemoteDescription, добавляем ICE-кандидат в очередь");
+                    iceCandidatesQueue.current.push(candidate);
                 }
             });
 
@@ -123,8 +137,8 @@ function App() {
             }
         };
 
-        if (!callerSignal) {
-            console.error("❌ Нет данных для setRemoteDescription");
+        if (!callerSignal || !callerSignal.type) {
+            console.error("❌ Ошибка: Неверный формат SDP-сигнала", callerSignal);
             return;
         }
 
@@ -138,12 +152,18 @@ function App() {
         const answer = await peerConnection.current.createAnswer();
         await peerConnection.current.setLocalDescription(answer);
         socket.emit('answerCall', { signal: answer });
+
+        // 🔹 Добавляем отложенные ICE-кандидаты
+        while (iceCandidatesQueue.current.length > 0) {
+            const candidate = iceCandidatesQueue.current.shift();
+            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+        }
     };
 
     return (
         <div>
             <h1>Чат + Видеозвонки</h1>
-            
+
             {!token ? (
                 <div>
                     <input type="text" placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
