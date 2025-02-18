@@ -60,7 +60,10 @@ app.post('/register', async (req, res) => {
 app.post('/dialogs', async (req, res) => {
     const { user1Id, user2Id } = req.body;
 
+    console.log("📌 Запрос на создание диалога:", { user1Id, user2Id });
+
     if (!user1Id || !user2Id) {
+        console.error("❌ Ошибка: отсутствует user1Id или user2Id");
         return res.status(400).json({ message: "Оба пользователя обязательны" });
     }
 
@@ -78,9 +81,10 @@ app.post('/dialogs', async (req, res) => {
             dialog = await Dialog.create({ user1Id, user2Id });
         }
 
+        console.log("✅ Успешно создан диалог ID:", dialog.id);
         res.json({ dialogId: dialog.id });
     } catch (error) {
-        console.error("Ошибка создания диалога:", error);
+        console.error("❌ Ошибка создания диалога:", error);
         res.status(500).json({ message: "Ошибка сервера" });
     }
 });

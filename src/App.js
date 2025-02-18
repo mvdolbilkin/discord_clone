@@ -69,25 +69,37 @@ function App() {
 
     // Создаём или открываем диалог
     const startChat = async (otherUserId) => {
-        try {
-            const response = await fetch(`${API_URL}/dialogs`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ user1Id: userId, user2Id: otherUserId })
-            });
-
-            const data = await response.json();
-            console.log("📌 Открыт диалог ID:", data.dialogId);
-            setCurrentDialog(data.dialogId);
-
-            socket.emit('joinDialog', data.dialogId);
-            fetch(`${API_URL}/dialogs/${data.dialogId}/messages`)
-                .then(res => res.json())
-                .then(data => setMessages(data));
-        } catch (error) {
-            console.error("❌ Ошибка создания диалога:", error);
-        }
-    };
+      console.log("📌 Создание диалога между:", { user1Id, otherUserId });
+  
+      if (!userId || !otherUserId) {
+          console.error("❌ Ошибка: userId или otherUserId отсутствуют");
+          return;
+      }
+  
+      try {
+          const response = await fetch(`${API_URL}/dialogs`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user1Id: userId, user2Id: otherUserId })
+          });
+  
+          const data = await response.json();
+          console.log("📌 Открыт диалог ID:", data.dialogId);
+  
+          if (!data.dialogId) {
+              console.error("❌ Ошибка: сервер не вернул dialogId");
+              return;
+          }
+  
+          setCurrentDialog(data.dialogId);
+          socket.emit('joinDialog', data.dialogId);
+          fetch(`${API_URL}/dialogs/${data.dialogId}/messages`)
+              .then(res => res.json())
+              .then(data => setMessages(data));
+      } catch (error) {
+          console.error("❌ Ошибка создания диалога:", error);
+      }
+  };
 
     // Получение сообщений WebSocket
     useEffect(() => {
