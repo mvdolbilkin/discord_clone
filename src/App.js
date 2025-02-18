@@ -7,41 +7,34 @@ function App() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [token, setToken] = useState(localStorage.getItem('token') || '');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
-    const [inCall, setInCall] = useState(false);
-    const [incomingCall, setIncomingCall] = useState(false);
-    const [callerSignal, setCallerSignal] = useState(null);
-    const myVideo = useRef();
-    const userVideo = useRef();
-    const peerConnection = useRef(null);
-
+    
     useEffect(() => {
         if (token) {
-            socket.on('loadMessages', (msgs) => setMessages(msgs));
-            socket.on('message', (data) => setMessages((prev) => [...prev, data]));
-            socket.on('incomingCall', (data) => {
-                setIncomingCall(true);
-                setCallerSignal(data.signal);
-            });
-            socket.on('callAccepted', async (signal) => {
-                if (peerConnection.current) {
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+            fetch('https://discordclone.duckdns.org/check-auth', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 }
-            });
-            socket.on('iceCandidate', async (candidate) => {
-                if (peerConnection.current) {
-                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setIsAuthenticated(true);
+                } else {
+                    localStorage.removeItem('token');
+                    setToken('');
+                    setIsAuthenticated(false);
                 }
+            })
+            .catch(() => {
+                localStorage.removeItem('token');
+                setToken('');
+                setIsAuthenticated(false);
             });
-
-            return () => {
-                socket.off('message');
-                socket.off('loadMessages');
-                socket.off('incomingCall');
-                socket.off('callAccepted');
-                socket.off('iceCandidate');
-            };
         }
     }, [token]);
 
@@ -65,9 +58,16 @@ function App() {
         if (data.token) {
             localStorage.setItem('token', data.token);
             setToken(data.token);
+            setIsAuthenticated(true);
         } else {
             alert(data.message);
         }
+    };
+
+    const logout = () => {
+        localStorage.removeItem('token');
+        setToken('');
+        setIsAuthenticated(false);
     };
 
     const sendMessage = () => {
@@ -79,9 +79,9 @@ function App() {
 
     return (
         <div>
-            <h1>Авторизация</h1>
-            {!token ? (
+            {!isAuthenticated ? (
                 <div>
+                    <h1>Авторизация</h1>
                     <input type="text" placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
                     <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
                     <button onClick={register}>Регистрация</button>
@@ -90,6 +90,7 @@ function App() {
             ) : (
                 <>
                     <h1>Чат + Видеозвонки</h1>
+                    <button onClick={logout}>Выйти</button>
                     <div>
                         <h2>💬 Чат</h2>
                         <div>
@@ -100,12 +101,6 @@ function App() {
                         <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Введите сообщение" />
                         <button onClick={sendMessage}>Отправить</button>
                     </div>
-                    {incomingCall && (
-                        <div>
-                            <p>📞 Входящий звонок...</p>
-                            <button onClick={() => setIncomingCall(false)}>Принять</button>
-                        </div>
-                    )}
                 </>
             )}
         </div>

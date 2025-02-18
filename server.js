@@ -9,13 +9,27 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 8080;
-const SECRET_KEY = "c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed961b381e6b2d3082eb7879429a616a46df67d6ce76d5d647c29c6b989bbb4c04b8d64"; // Хранить в .env файле
+const SECRET_KEY = "c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed961b381e6b2d3082eb7879429a616a46df67d6ce76d5d647c29c6b989bbb4c04b8d64"; // ❗ Заменить на переменную окружения в продакшене!
 
 app.use(express.json());
 app.use(cors());
 
 // Раздаем статические файлы (React-клиент)
 app.use(express.static(path.join(__dirname, 'build')));
+
+// Проверка токена
+app.post('/check-auth', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.json({ success: false });
+
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return res.json({ success: false });
+        } else {
+            return res.json({ success: true, user: decoded });
+        }
+    });
+});
 
 // Регистрация пользователя
 app.post('/register', async (req, res) => {
@@ -82,14 +96,32 @@ io.on("connection", (socket) => {
     });
 
     socket.on("callUser", (data) => {
+        if (!data.signal || !data.signal.type) {
+            console.error("❌ Ошибка: некорректный SDP-сигнал при звонке", data);
+            return;
+        }
+
+        console.log(`📞 Исходящий звонок от ${socket.id}`);
         socket.broadcast.emit("incomingCall", { from: socket.id, signal: data.signal });
     });
 
     socket.on("answerCall", (data) => {
+        if (!data.signal || !data.signal.type) {
+            console.error("❌ Ошибка: некорректный SDP-сигнал при ответе", data);
+            return;
+        }
+
+        console.log(`✅ Звонок принят пользователем ${socket.id}`);
         socket.broadcast.emit("callAccepted", { signal: data.signal });
     });
 
     socket.on("iceCandidate", (candidate) => {
+        if (!candidate || !candidate.candidate) {
+            console.error("❌ Ошибка: некорректный ICE-кандидат", candidate);
+            return;
+        }
+
+        console.log(`📡 Получен ICE-кандидат`, candidate);
         socket.broadcast.emit("iceCandidate", candidate);
     });
 
