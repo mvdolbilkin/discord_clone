@@ -35,11 +35,11 @@ app.post('/check-auth', (req, res) => {
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
 
-    try {
-        if (!username || !password) {
-            return res.status(400).json({ message: 'Имя пользователя и пароль обязательны' });
-        }
+    if (!username || !password || typeof password !== 'string') {
+        return res.status(400).json({ message: 'Некорректные данные: имя пользователя и пароль обязательны' });
+    }
 
+    try {
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
             return res.status(400).json({ message: 'Пользователь уже существует' });
