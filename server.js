@@ -94,48 +94,34 @@ const io = new Server(server, {
 // **Храним сообщения в памяти (можно заменить на БД)**
 let messages = [];
 
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+
+    if (!token) {
+        return next(new Error('Аутентификация не пройдена: токен отсутствует'));
+    }
+
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return next(new Error('Неверный токен'));
+        }
+        socket.user = decoded; // Сохраняем данные пользователя в сокете
+        next();
+    });
+});
+
 io.on("connection", (socket) => {
-    console.log(`🔵 Пользователь подключился: ${socket.id}`);
+    console.log(`🔵 Пользователь подключился: ${socket.user.username}`);
 
     socket.emit("loadMessages", messages);
 
     socket.on("message", (data) => {
-        messages.push(data);
-        io.emit("message", data);
-    });
-
-    socket.on("callUser", (data) => {
-        if (!data.signal || !data.signal.type) {
-            console.error("❌ Ошибка: некорректный SDP-сигнал при звонке", data);
-            return;
-        }
-
-        console.log(`📞 Исходящий звонок от ${socket.id}`);
-        socket.broadcast.emit("incomingCall", { from: socket.id, signal: data.signal });
-    });
-
-    socket.on("answerCall", (data) => {
-        if (!data.signal || !data.signal.type) {
-            console.error("❌ Ошибка: некорректный SDP-сигнал при ответе", data);
-            return;
-        }
-
-        console.log(`✅ Звонок принят пользователем ${socket.id}`);
-        socket.broadcast.emit("callAccepted", { signal: data.signal });
-    });
-
-    socket.on("iceCandidate", (candidate) => {
-        if (!candidate || !candidate.candidate) {
-            console.error("❌ Ошибка: некорректный ICE-кандидат", candidate);
-            return;
-        }
-
-        console.log(`📡 Получен ICE-кандидат`, candidate);
-        socket.broadcast.emit("iceCandidate", candidate);
+        messages.push({ username: socket.user.username, text: data.text });
+        io.emit("message", { username: socket.user.username, text: data.text });
     });
 
     socket.on("disconnect", () => {
-        console.log(`🔴 Пользователь отключился: ${socket.id}`);
+        console.log(`🔴 Пользователь отключился: ${socket.user.username}`);
     });
 });
 

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
+const token = localStorage.getItem('token');
+const socket = io('wss://discordclone.duckdns.org', {
+    transports: ['websocket', 'polling'],
+    auth: {
+        token: token
+    }
+});
 
 function App() {
     const [username, setUsername] = useState('');
