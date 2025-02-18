@@ -48,7 +48,7 @@ const Dialog = sequelize.define('Dialog', {
     }
 });
 
-// Добавляем связь диалогов с сообщениями
+// Связываем диалоги с сообщениями
 Message.belongsTo(Dialog);
 Dialog.hasMany(Message);
 

@@ -4,7 +4,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const bcrypt = require('bcrypt'); // Используем bcrypt вместо bcryptjs
 
-const { sequelize, User } = require('./database'); // Подключаем базу данных
+const { sequelize, User, Message, Dialog } = require('./database');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 
