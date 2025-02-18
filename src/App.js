@@ -85,39 +85,65 @@ function App() {
     };
 
     const startCall = async () => {
-        setInCall(true);
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        myVideo.current.srcObject = stream;
-
-        peerConnection.current = new RTCPeerConnection();
-        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
-
-        peerConnection.current.ontrack = (event) => {
-            userVideo.current.srcObject = event.streams[0];
-        };
-
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
-        socket.emit('callUser', { signal: offer });
-    };
-
-    const acceptCall = async (data) => {
-        setInCall(true);
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        myVideo.current.srcObject = stream;
-
-        peerConnection.current = new RTCPeerConnection();
-        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
-
-        peerConnection.current.ontrack = (event) => {
-            userVideo.current.srcObject = event.streams[0];
-        };
-
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal));
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket.emit('answerCall', { signal: answer });
-    };
+      setInCall(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      myVideo.current.srcObject = stream;
+  
+      peerConnection.current = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+  
+      stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+  
+      peerConnection.current.ontrack = (event) => {
+          userVideo.current.srcObject = event.streams[0];
+      };
+  
+      // 🔹 Отправляем ICE-кандидаты
+      peerConnection.current.onicecandidate = (event) => {
+          if (event.candidate) {
+              socket.emit("iceCandidate", event.candidate);
+          }
+      };
+  
+      const offer = await peerConnection.current.createOffer();
+      await peerConnection.current.setLocalDescription(offer);
+      socket.emit('callUser', { signal: offer });
+  };
+  
+  const acceptCall = async (data) => {
+      setInCall(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      myVideo.current.srcObject = stream;
+  
+      peerConnection.current = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
+  
+      stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+  
+      peerConnection.current.ontrack = (event) => {
+          userVideo.current.srcObject = event.streams[0];
+      };
+  
+      peerConnection.current.onicecandidate = (event) => {
+          if (event.candidate) {
+              socket.emit("iceCandidate", event.candidate);
+          }
+      };
+  
+      await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal));
+      const answer = await peerConnection.current.createAnswer();
+      await peerConnection.current.setLocalDescription(answer);
+      socket.emit('answerCall', { signal: answer });
+  };
+  
+  // 🔹 Обрабатываем ICE-кандидаты
+  socket.on("iceCandidate", (candidate) => {
+      if (peerConnection.current) {
+          peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+  });
 
     return (
         <div>
