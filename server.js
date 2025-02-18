@@ -135,9 +135,6 @@ io.on('connection', (socket) => {
         io.emit('userDisconnected', { id: socket.id, username: socket.username });
     });
 });
-app.get('/', (req, res) => {
-    res.send('Сервер работает!');
-});
 // 📌 **Запуск сервера**
 const PORT = 8080;
 server.listen(PORT, async () => {
