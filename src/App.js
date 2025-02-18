@@ -51,6 +51,18 @@ function App() {
             .then(res => res.json())
             .then(data => setDialogs(data));
     };
+    useEffect(() => {
+      fetch(`${API_URL}/dialogs/1`) // Заменить на реальный userID
+          .then(res => res.json())
+          .then(data => {
+              console.log("📌 Полученные диалоги:", data);
+              setDialogs(Array.isArray(data) ? data : []);
+          })
+          .catch(err => {
+              console.error("❌ Ошибка загрузки диалогов:", err);
+              setDialogs([]); // Если произошла ошибка — делаем пустой массив
+          });
+  }, []);
 
     // Загрузка сообщений при выборе диалога
     useEffect(() => {
