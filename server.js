@@ -190,6 +190,7 @@ io.on("connection", (socket) => {
 
     if (token) {
         try {
+            console.log(socket.handshake.auth.token);
             const decoded = jwtDecode(token);
             userId = decoded.id;
 
