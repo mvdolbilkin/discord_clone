@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import jwtDecode from 'jwt-decode';
+import * as jwtDecode from 'jwt-decode';
 
 const API_URL = "https://discordclone.duckdns.org";
 const token = localStorage.getItem('token');
