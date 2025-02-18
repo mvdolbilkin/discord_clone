@@ -69,7 +69,7 @@ function App() {
 
     // Создаём или открываем диалог
     const startChat = async (otherUserId) => {
-      console.log("📌 Создание диалога между:", { user1Id, otherUserId });
+      console.log("📌 Создание диалога между:", { userId, otherUserId });
   
       if (!userId || !otherUserId) {
           console.error("❌ Ошибка: userId или otherUserId отсутствуют");
@@ -80,7 +80,7 @@ function App() {
           const response = await fetch(`${API_URL}/dialogs`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ user1Id: userId, user2Id: otherUserId })
+              body: JSON.stringify({ user1Id: userId, user2Id: otherUserId }) // Исправлено!
           });
   
           const data = await response.json();
