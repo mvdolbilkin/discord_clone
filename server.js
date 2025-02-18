@@ -56,6 +56,65 @@ app.post('/register', async (req, res) => {
     }
 });
 
+// Создать диалог (если не существует)
+app.post('/dialogs', async (req, res) => {
+    const { user1Id, user2Id } = req.body;
+
+    if (!user1Id || !user2Id) {
+        return res.status(400).json({ message: "Оба пользователя обязательны" });
+    }
+
+    try {
+        let dialog = await Dialog.findOne({
+            where: {
+                [Op.or]: [
+                    { user1Id, user2Id },
+                    { user1Id: user2Id, user2Id: user1Id }
+                ]
+            }
+        });
+
+        if (!dialog) {
+            dialog = await Dialog.create({ user1Id, user2Id });
+        }
+
+        res.json({ dialogId: dialog.id });
+    } catch (error) {
+        console.error("Ошибка создания диалога:", error);
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
+
+// Получить диалоги пользователя
+app.get('/dialogs/:userId', async (req, res) => {
+    const { userId } = req.params;
+    
+    try {
+        const dialogs = await Dialog.findAll({
+            where: {
+                [Op.or]: [{ user1Id: userId }, { user2Id: userId }]
+            }
+        });
+        
+        res.json(dialogs);
+    } catch (error) {
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
+
+// Получить сообщения из диалога
+app.get('/dialogs/:dialogId/messages', async (req, res) => {
+    const { dialogId } = req.params;
+
+    try {
+        const messages = await Message.findAll({ where: { DialogId: dialogId } });
+        res.json(messages);
+    } catch (error) {
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
+
+
 // Вход пользователя
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
@@ -115,6 +174,25 @@ io.on("connection", (socket) => {
 
     socket.emit("loadMessages", messages);
 
+    socket.on("joinDialog", (dialogId) => {
+        socket.join(`dialog_${dialogId}`);
+        console.log(`📩 Пользователь ${socket.user.username} зашел в диалог ${dialogId}`);
+    });
+
+    socket.on("privateMessage", async (data) => {
+        const { dialogId, text } = data;
+
+        const message = await Message.create({
+            DialogId: dialogId,
+            username: socket.user.username,
+            text: text
+        });
+
+        io.to(`dialog_${dialogId}`).emit("privateMessage", {
+            username: socket.user.username,
+            text: message.text
+        });
+    });
     socket.on("message", (data) => {
         messages.push({ username: socket.user.username, text: data.text });
         io.emit("message", { username: socket.user.username, text: data.text });

@@ -37,6 +37,21 @@ const Message = sequelize.define('Message', {
 User.hasMany(Message);
 Message.belongsTo(User);
 
+const Dialog = sequelize.define('Dialog', {
+    user1Id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    user2Id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    }
+});
+
+// Добавляем связь диалогов с сообщениями
+Message.belongsTo(Dialog);
+Dialog.hasMany(Message);
+
 // Синхронизация базы данных
 sequelize.sync()
     .then(() => console.log('База данных успешно создана'))
