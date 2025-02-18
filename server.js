@@ -2,7 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt'); // Используем bcrypt вместо bcryptjs
+
 const { sequelize, User } = require('./database'); // Подключаем базу данных
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -43,7 +44,8 @@ app.post('/register', async (req, res) => {
 
     try {
         console.log("📌 Перед хешированием:", password);
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const saltRounds = 10;  // Количество раундов хеширования
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
         console.log("✅ Хеш создан успешно:", hashedPassword);
 
         await User.create({ username, password: hashedPassword });
@@ -64,8 +66,10 @@ app.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Неверные учетные данные' });
         }
 
+        console.log("📌 Вход: проверяем пароль...");
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+            console.log("❌ Пароль не совпадает!");
             return res.status(400).json({ message: 'Неверные учетные данные' });
         }
 
@@ -73,7 +77,8 @@ app.post('/login', async (req, res) => {
 
         return res.status(200).json({ message: 'Вход успешен', token });
     } catch (error) {
-        return res.status(500).json({ message: 'Ошибка сервера', error });
+        console.error("❌ Ошибка при входе:", error);
+        return res.status(500).json({ message: 'Ошибка сервера', error: error.message });
     }
 });
 
