@@ -186,14 +186,17 @@ io.on("connection", (socket) => {
         console.log("📌 Активные сокеты:", Object.keys(io.sockets.sockets));
     }, 5000);
     const token = socket.handshake.auth?.token;
-
     let userId = null;
+
     if (token) {
         try {
             const decoded = jwtDecode(token);
             userId = decoded.id;
-            userSockets.set(userId, socket.id);
-            console.log(`✅ Пользователь ${userId} подключился (Socket ID: ${socket.id})`);
+
+            if (userId) {
+                userSockets.set(userId, socket.id); // ✅ Сохраняем userId → socket.id
+                console.log(`✅ Пользователь ${userId} подключился (Socket ID: ${socket.id})`);
+            }
         } catch (error) {
             console.error("❌ Ошибка декодирования токена:", error);
         }
