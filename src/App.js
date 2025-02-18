@@ -4,8 +4,6 @@ import io from 'socket.io-client';
 const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
-    const [messages, setMessages] = useState([]);
-    const [message, setMessage] = useState('');
     const [inCall, setInCall] = useState(false);
     const [incomingCall, setIncomingCall] = useState(false);
     const [callerSignal, setCallerSignal] = useState(null);
@@ -25,15 +23,15 @@ function App() {
             setCallerSignal(data.signal);
         });
 
-        socket.on('callAccepted', async (signal) => {
-            console.log("✅ Звонок принят, устанавливаем RemoteDescription", signal);
+        socket.on('callAccepted', async (data) => {
+            console.log("✅ Звонок принят, устанавливаем RemoteDescription", data.signal);
             if (peerConnection.current) {
                 try {
-                    if (!signal || !signal.type) {
-                        console.error("❌ Ошибка: Неверный формат SDP-сигнала", signal);
+                    if (!data.signal || !data.signal.type) {
+                        console.error("❌ Ошибка: Неверный формат SDP-сигнала", data.signal);
                         return;
                     }
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal));
 
                     while (iceCandidatesQueue.current.length > 0) {
                         const candidate = iceCandidatesQueue.current.shift();
