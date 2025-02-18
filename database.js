@@ -20,7 +20,6 @@ const User = sequelize.define('User', {
     }
 });
 
-
 // Определяем модель сообщений
 const Message = sequelize.define('Message', {
     text: {
@@ -37,6 +36,7 @@ const Message = sequelize.define('Message', {
 User.hasMany(Message);
 Message.belongsTo(User);
 
+// Определяем модель диалогов
 const Dialog = sequelize.define('Dialog', {
     user1Id: {
         type: DataTypes.INTEGER,
@@ -57,4 +57,5 @@ sequelize.sync()
     .then(() => console.log('База данных успешно создана'))
     .catch(err => console.error('Ошибка базы данных:', err));
 
-module.exports = { sequelize, User, Message };
+// ✅ Теперь экспортируем Dialog, чтобы использовать в server.js
+module.exports = { sequelize, User, Message, Dialog };
