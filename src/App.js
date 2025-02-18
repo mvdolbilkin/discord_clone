@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
-import { jwtDecode } from 'jwt-decode';
+import jwt_decode from "jwt-decode";
 
 const API_URL = "https://discordclone.duckdns.org";
 const token = localStorage.getItem('token');
@@ -23,7 +23,7 @@ function App() {
       console.log("📌 Токен из localStorage:", token);
 
       try {
-          const decoded = jwtDecode(token);
+          const decoded = jwt_decode(token);
           console.log("📌 Декодированный токен:", decoded);
           userId = decoded.id;
       } catch (error) {
