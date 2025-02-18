@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-const socket = io("https://discordclone.duckdns.org"); // Адрес твоего сервера
+const API_URL = "https://discordclone.duckdns.org";
+const token = localStorage.getItem('token');
+
+const socket = io(API_URL, {
+    transports: ['websocket', 'polling'],
+    auth: { token }
+});
 
 const CallComponent = ({ userId, targetUserId }) => {
     const [isCalling, setIsCalling] = useState(false);
