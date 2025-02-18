@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-const socket = io('http://85.192.25.173:8080', { transports: ['websocket', 'polling'] });
+const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
     const [username, setUsername] = useState(localStorage.getItem('username') || '');
