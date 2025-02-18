@@ -113,7 +113,15 @@ app.get('/dialogs/:dialogId/messages', async (req, res) => {
         res.status(500).json({ message: "Ошибка сервера" });
     }
 });
-
+app.get('/users', async (req, res) => {
+    try {
+        const users = await User.findAll({ attributes: ['id', 'username'] });
+        res.json(users);
+    } catch (error) {
+        console.error("❌ Ошибка при получении списка пользователей:", error);
+        res.status(500).json({ message: "Ошибка сервера" });
+    }
+});
 
 // Вход пользователя
 app.post('/login', async (req, res) => {

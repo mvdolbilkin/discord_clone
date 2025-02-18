@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
+import jwtDecode from 'jwt-decode';
 
 const API_URL = "https://discordclone.duckdns.org";
 const token = localStorage.getItem('token');
@@ -12,69 +13,80 @@ function App() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [dialogs, setDialogs] = useState([]); // Указываем начальное значение []
+    const [users, setUsers] = useState([]); // Список всех пользователей
     const [currentDialog, setCurrentDialog] = useState(null);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
     
+    let userId = null;
+    if (token) {
+        try {
+            const decoded = jwtDecode(token);
+            userId = decoded.id;
+        } catch (error) {
+            console.error("Ошибка декодирования токена:", error);
+            localStorage.removeItem('token');
+        }
+    }
 
-    // Проверка токена при загрузке
+    // Проверяем авторизацию и загружаем пользователей
     useEffect(() => {
-        if (token) {
-            fetch(`${API_URL}/check-auth`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    setIsAuthenticated(true);
-                    fetchDialogs();
-                } else {
-                    localStorage.removeItem('token');
-                    setIsAuthenticated(false);
-                }
-            })
-            .catch(() => {
+        if (!token) return;
+
+        fetch(`${API_URL}/check-auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                setIsAuthenticated(true);
+                fetchUsers();
+            } else {
                 localStorage.removeItem('token');
                 setIsAuthenticated(false);
-            });
-        }
-    }, []);
+            }
+        })
+        .catch(() => {
+            localStorage.removeItem('token');
+            setIsAuthenticated(false);
+        });
+    }, [token]);
 
-    // Получение списка диалогов
-    const fetchDialogs = () => {
-        fetch(`${API_URL}/dialogs/1`) // Заменить на реальный userID
+    // Загружаем список пользователей
+    const fetchUsers = () => {
+        fetch(`${API_URL}/users`)
             .then(res => res.json())
-            .then(data => setDialogs(data));
+            .then(data => {
+                console.log("📌 Список пользователей:", data);
+                setUsers(data.filter(user => user.id !== userId)); // Исключаем самого себя
+            })
+            .catch(err => console.error("❌ Ошибка загрузки пользователей:", err));
     };
-    useEffect(() => {
-      fetch(`${API_URL}/dialogs/1`) // Заменить на реальный userID
-          .then(res => res.json())
-          .then(data => {
-              console.log("📌 Полученные диалоги:", data);
-              setDialogs(Array.isArray(data) ? data : []);
-          })
-          .catch(err => {
-              console.error("❌ Ошибка загрузки диалогов:", err);
-              setDialogs([]); // Если произошла ошибка — делаем пустой массив
-          });
-  }, []);
 
-    // Загрузка сообщений при выборе диалога
-    useEffect(() => {
-        if (currentDialog) {
-            socket.emit('joinDialog', currentDialog);
-            fetch(`${API_URL}/dialogs/${currentDialog}/messages`)
+    // Создаём или открываем диалог
+    const startChat = async (otherUserId) => {
+        try {
+            const response = await fetch(`${API_URL}/dialogs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user1Id: userId, user2Id: otherUserId })
+            });
+
+            const data = await response.json();
+            console.log("📌 Открыт диалог ID:", data.dialogId);
+            setCurrentDialog(data.dialogId);
+
+            socket.emit('joinDialog', data.dialogId);
+            fetch(`${API_URL}/dialogs/${data.dialogId}/messages`)
                 .then(res => res.json())
                 .then(data => setMessages(data));
+        } catch (error) {
+            console.error("❌ Ошибка создания диалога:", error);
         }
-    }, [currentDialog]);
+    };
 
-    // Получение новых сообщений через WebSocket
+    // Получение сообщений WebSocket
     useEffect(() => {
         socket.on('privateMessage', (data) => {
             setMessages(prev => [...prev, data]);
@@ -84,6 +96,14 @@ function App() {
             socket.off('privateMessage');
         };
     }, []);
+
+    // Отправка сообщения
+    const sendMessage = () => {
+        if (message.trim() && currentDialog) {
+            socket.emit('privateMessage', { dialogId: currentDialog, text: message });
+            setMessage('');
+        }
+    };
 
     // Регистрация пользователя
     const register = async () => {
@@ -107,28 +127,20 @@ function App() {
         if (data.token) {
             localStorage.setItem('token', data.token);
             setIsAuthenticated(true);
-            fetchDialogs();
+            fetchUsers();
         } else {
             alert(data.message);
         }
     };
 
-    // Выход из системы
+    // Выход
     const logout = () => {
         localStorage.removeItem('token');
         setIsAuthenticated(false);
     };
 
-    // Отправка личного сообщения
-    const sendMessage = () => {
-        if (message.trim() && currentDialog) {
-            socket.emit('privateMessage', { dialogId: currentDialog, text: message });
-            setMessage('');
-        }
-    };
-
     return (
-        <div>
+        <div style={{ display: 'flex', height: '100vh' }}>
             {!isAuthenticated ? (
                 <div>
                     <h2>Регистрация / Вход</h2>
@@ -138,39 +150,47 @@ function App() {
                     <button onClick={login}>Вход</button>
                 </div>
             ) : (
-                <div>
-                    <h2>Личные чаты</h2>
-                    <button onClick={logout}>Выйти</button>
+                <>
+                    {/* Список пользователей слева */}
+                    <div style={{ width: '30%', borderRight: '1px solid gray', padding: '10px' }}>
+                        <h3>🔹 Пользователи</h3>
+                        <ul>
+                            {users.length > 0 ? (
+                                users.map(user => (
+                                    <li key={user.id} onClick={() => startChat(user.id)}>
+                                        {user.username}
+                                    </li>
+                                ))
+                            ) : (
+                                <p>Нет доступных пользователей</p>
+                            )}
+                        </ul>
+                        <button onClick={logout} style={{ marginTop: '10px' }}>Выйти</button>
+                    </div>
 
-                    {/* Список диалогов */}
-                    <h3>Диалоги</h3>
-                    <ul>
-                        {dialogs.map(dialog => (
-                            <li key={dialog.id} onClick={() => setCurrentDialog(dialog.id)}>
-                                Диалог #{dialog.id}
-                            </li>
-                        ))}
-                    </ul>
-
-                    {/* Окно сообщений */}
-                    {currentDialog && (
-                        <div>
-                            <h3>Диалог #{currentDialog}</h3>
-                            <div>
-                                {messages.map((msg, index) => (
-                                    <p key={index}><strong>{msg.username}:</strong> {msg.text}</p>
-                                ))}
-                            </div>
-                            <input
-                                type="text"
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                placeholder="Введите сообщение"
-                            />
-                            <button onClick={sendMessage}>Отправить</button>
-                        </div>
-                    )}
-                </div>
+                    {/* Чат справа */}
+                    <div style={{ width: '70%', padding: '10px' }}>
+                        {currentDialog ? (
+                            <>
+                                <h3>💬 Диалог #{currentDialog}</h3>
+                                <div style={{ border: '1px solid gray', height: '400px', overflowY: 'scroll', padding: '10px' }}>
+                                    {messages.map((msg, index) => (
+                                        <p key={index}><strong>{msg.username}:</strong> {msg.text}</p>
+                                    ))}
+                                </div>
+                                <input
+                                    type="text"
+                                    value={message}
+                                    onChange={(e) => setMessage(e.target.value)}
+                                    placeholder="Введите сообщение"
+                                />
+                                <button onClick={sendMessage}>Отправить</button>
+                            </>
+                        ) : (
+                            <p>Выберите пользователя для начала чата</p>
+                        )}
+                    </div>
+                </>
             )}
         </div>
     );
