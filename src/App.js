@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-// Подключение к WebSocket-серверу через WSS (HTTPS)
+// Подключение к серверу WebSocket
 const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
@@ -21,18 +21,32 @@ function App() {
         if (token) {
             socket.on('loadMessages', (msgs) => setMessages(msgs));
             socket.on('message', (data) => setMessages((prev) => [...prev, data]));
+
             socket.on('incomingCall', (data) => {
+                console.log("📞 Входящий звонок", data);
                 setIncomingCall(true);
                 setCallerSignal(data.signal);
             });
+
             socket.on('callAccepted', async (signal) => {
+                console.log("✅ Звонок принят, устанавливаем RemoteDescription");
                 if (peerConnection.current) {
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+                    try {
+                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
+                    } catch (error) {
+                        console.error("❌ Ошибка setRemoteDescription:", error);
+                    }
                 }
             });
+
             socket.on('iceCandidate', async (candidate) => {
                 if (peerConnection.current) {
-                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                    try {
+                        console.log("✅ Получен ICE-кандидат", candidate);
+                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                    } catch (error) {
+                        console.error("❌ Ошибка addIceCandidate:", error);
+                    }
                 }
             });
 
@@ -46,31 +60,6 @@ function App() {
         }
     }, [token]);
 
-    const register = async () => {
-        const response = await fetch('https://discordclone.duckdns.org/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await response.json();
-        alert(data.message);
-    };
-
-    const login = async () => {
-        const response = await fetch('https://discordclone.duckdns.org/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await response.json();
-        if (data.token) {
-            localStorage.setItem('token', data.token);
-            setToken(data.token);
-        } else {
-            alert(data.message);
-        }
-    };
-
     const sendMessage = () => {
         if (message.trim()) {
             socket.emit('message', { text: message });
@@ -80,6 +69,8 @@ function App() {
 
     const startCall = async () => {
         setInCall(true);
+        console.log("📞 Начало звонка");
+
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         myVideo.current.srcObject = stream;
 
@@ -90,11 +81,13 @@ function App() {
         stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
 
         peerConnection.current.ontrack = (event) => {
+            console.log("🎥 Видео от собеседника");
             userVideo.current.srcObject = event.streams[0];
         };
 
         peerConnection.current.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log("📡 Отправка ICE-кандидата");
                 socket.emit("iceCandidate", event.candidate);
             }
         };
@@ -107,6 +100,8 @@ function App() {
     const acceptCall = async () => {
         setInCall(true);
         setIncomingCall(false);
+        console.log("📞 Принимаем звонок");
+
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         myVideo.current.srcObject = stream;
 
@@ -117,16 +112,29 @@ function App() {
         stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
 
         peerConnection.current.ontrack = (event) => {
+            console.log("🎥 Видео от собеседника");
             userVideo.current.srcObject = event.streams[0];
         };
 
         peerConnection.current.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log("📡 Отправка ICE-кандидата");
                 socket.emit("iceCandidate", event.candidate);
             }
         };
 
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(callerSignal));
+        if (!callerSignal) {
+            console.error("❌ Нет данных для setRemoteDescription");
+            return;
+        }
+
+        try {
+            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(callerSignal));
+        } catch (error) {
+            console.error("❌ Ошибка setRemoteDescription:", error);
+            return;
+        }
+
         const answer = await peerConnection.current.createAnswer();
         await peerConnection.current.setLocalDescription(answer);
         socket.emit('answerCall', { signal: answer });
@@ -134,17 +142,17 @@ function App() {
 
     return (
         <div>
-            <h1>Авторизация</h1>
+            <h1>Чат + Видеозвонки</h1>
+            
             {!token ? (
                 <div>
                     <input type="text" placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
                     <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
-                    <button onClick={register}>Регистрация</button>
-                    <button onClick={login}>Вход</button>
+                    <button onClick={() => alert("Регистрация временно отключена")}>Регистрация</button>
+                    <button onClick={() => alert("Вход временно отключен")}>Вход</button>
                 </div>
             ) : (
                 <>
-                    <h1>Чат + Видеозвонки</h1>
                     <div>
                         <h2>💬 Чат</h2>
                         <div>
@@ -155,13 +163,16 @@ function App() {
                         <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Введите сообщение" />
                         <button onClick={sendMessage}>Отправить</button>
                     </div>
+
                     {incomingCall && (
                         <div>
                             <p>📞 Входящий звонок...</p>
                             <button onClick={acceptCall}>Принять</button>
                         </div>
                     )}
+
                     <button onClick={startCall} disabled={inCall}>Позвонить</button>
+
                     <div>
                         <h2>📹 Ваше видео</h2>
                         <video ref={myVideo} autoPlay playsInline style={{ width: '300px', border: '1px solid black' }} />
