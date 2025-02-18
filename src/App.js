@@ -12,10 +12,11 @@ function App() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [dialogs, setDialogs] = useState([]);
+    const [dialogs, setDialogs] = useState([]); // Указываем начальное значение []
     const [currentDialog, setCurrentDialog] = useState(null);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
+    
 
     // Проверка токена при загрузке
     useEffect(() => {
