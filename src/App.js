@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
+// Подключение к WebSocket-серверу через WSS (HTTPS)
 const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
@@ -77,6 +78,60 @@ function App() {
         }
     };
 
+    const startCall = async () => {
+        setInCall(true);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        myVideo.current.srcObject = stream;
+
+        peerConnection.current = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+
+        peerConnection.current.ontrack = (event) => {
+            userVideo.current.srcObject = event.streams[0];
+        };
+
+        peerConnection.current.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", event.candidate);
+            }
+        };
+
+        const offer = await peerConnection.current.createOffer();
+        await peerConnection.current.setLocalDescription(offer);
+        socket.emit('callUser', { signal: offer });
+    };
+
+    const acceptCall = async () => {
+        setInCall(true);
+        setIncomingCall(false);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        myVideo.current.srcObject = stream;
+
+        peerConnection.current = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
+
+        peerConnection.current.ontrack = (event) => {
+            userVideo.current.srcObject = event.streams[0];
+        };
+
+        peerConnection.current.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit("iceCandidate", event.candidate);
+            }
+        };
+
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(callerSignal));
+        const answer = await peerConnection.current.createAnswer();
+        await peerConnection.current.setLocalDescription(answer);
+        socket.emit('answerCall', { signal: answer });
+    };
+
     return (
         <div>
             <h1>Авторизация</h1>
@@ -103,9 +158,17 @@ function App() {
                     {incomingCall && (
                         <div>
                             <p>📞 Входящий звонок...</p>
-                            <button onClick={() => setIncomingCall(false)}>Принять</button>
+                            <button onClick={acceptCall}>Принять</button>
                         </div>
                     )}
+                    <button onClick={startCall} disabled={inCall}>Позвонить</button>
+                    <div>
+                        <h2>📹 Ваше видео</h2>
+                        <video ref={myVideo} autoPlay playsInline style={{ width: '300px', border: '1px solid black' }} />
+
+                        <h2>📹 Видео собеседника</h2>
+                        <video ref={userVideo} autoPlay playsInline style={{ width: '300px', border: '1px solid red' }} />
+                    </div>
                 </>
             )}
         </div>
