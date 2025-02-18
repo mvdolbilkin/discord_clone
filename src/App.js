@@ -16,7 +16,7 @@ function App() {
     const peerConnection = useRef(null);
 
     const registerUser = async () => {
-        const response = await fetch('http://85.192.25.173:8080/register', {
+        const response = await fetch('https://discordclone.duckdns.org/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -26,7 +26,7 @@ function App() {
     };
 
     const loginUser = async () => {
-        const response = await fetch('http://85.192.25.173:8080/login', {
+        const response = await fetch('https://discordclone.duckdns.org/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
