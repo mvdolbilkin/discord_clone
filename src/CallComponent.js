@@ -34,11 +34,19 @@ const CallComponent = ({ userId, targetUserId }) => {
             }
         };
 
-        socket.on("incoming-call", async (data) => {
-            const answer = await peerConnection.current.createAnswer();
-            await peerConnection.current.setLocalDescription(answer);
-            socket.emit("answer-call", { to: data.from, answer });
-        });
+        useEffect(() => {
+            socket.on("incoming-call", (data) => {
+                console.log("📞 Входящий вызов от:", data.from);
+        
+                if (window.confirm(`Входящий вызов от пользователя ${data.from}. Принять?`)) {
+                    acceptCall(data);
+                }
+            });
+        
+            return () => {
+                socket.off("incoming-call");
+            };
+        }, []);
 
         socket.on("call-answered", async (data) => {
             await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.answer));

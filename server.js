@@ -180,9 +180,17 @@ io.use((socket, next) => {
         next();
     });
 });
-
+const userSockets = new Map(); // userId → socket.id
 io.on("connection", (socket) => {
-    console.log(`🔵 Пользователь подключился: ${socket.user.username}`);
+    setInterval(() => {
+        console.log("📌 Активные сокеты:", Object.keys(io.sockets.sockets));
+    }, 5000);
+    const userId = socket.handshake.auth?.token ? jwtDecode(socket.handshake.auth.token).id : null;
+
+    if (userId) {
+        userSockets.set(userId, socket.id);
+        console.log(`✅ Пользователь ${userId} подключился: ${socket.id}`);
+    }
 
     socket.emit("loadMessages", messages);
 
@@ -192,11 +200,17 @@ io.on("connection", (socket) => {
     });
     
     socket.on("call-user", (data) => {
-        console.log(`📞 Входящий вызов от ${data.from} → ${data.to}`);
-        io.to(data.to).emit("incoming-call", {
-            from: data.from,
-            offer: data.offer,
-        });
+        const targetSocketId = userSockets.get(data.to);
+        console.log(`📞 Входящий вызов от ${data.from} → ${data.to} (Socket: ${targetSocketId})`);
+
+        if (targetSocketId) {
+            io.to(targetSocketId).emit("incoming-call", {
+                from: data.from,
+                offer: data.offer
+            });
+        } else {
+            console.log(`❌ Пользователь ${data.to} не в сети`);
+        }
     });
 
     socket.on("answer-call", (data) => {
@@ -236,6 +250,7 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
         console.log(`🔴 Пользователь отключился: ${socket.user.username}`);
+        userSockets.delete(userId);
     });
 });
 
