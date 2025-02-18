@@ -192,11 +192,13 @@ io.on("connection", (socket) => {
         try {
             const decoded = jwtDecode(token);
             userId = decoded.id;
+            userSockets.set(userId, socket.id);
             console.log(`✅ Пользователь ${userId} подключился (Socket ID: ${socket.id})`);
         } catch (error) {
             console.error("❌ Ошибка декодирования токена:", error);
         }
     }
+    console.log("📌 Активные пользователи:", Array.from(userSockets.keys()));
     socket.emit("loadMessages", messages);
 
     socket.on("joinDialog", (dialogId) => {
