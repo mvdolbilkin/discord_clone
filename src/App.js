@@ -20,13 +20,16 @@ function App() {
     
     let userId = null;
     if (token) {
-        try {
-            const decoded = jwtDecode(token);
-            userId = decoded.id;
-        } catch (error) {
-            console.error("Ошибка декодирования токена:", error);
-            localStorage.removeItem('token');
-        }
+      console.log("📌 Токен из localStorage:", token);
+
+      try {
+          const decoded = jwtDecode(token);
+          console.log("📌 Декодированный токен:", decoded);
+          userId = decoded.id;
+      } catch (error) {
+          console.error("❌ Ошибка декодирования токена:", error);
+          localStorage.removeItem('token');
+      }
     }
 
     // Проверяем авторизацию и загружаем пользователей
