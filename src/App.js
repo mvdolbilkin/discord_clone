@@ -18,22 +18,19 @@ function App() {
     const [currentDialog, setCurrentDialog] = useState(null);
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
-    
+    const [activeCallUser, setActiveCallUser] = useState(null); // ✅ Добавлено состояние для звонков
+
     let userId = null;
     if (token) {
-      console.log("📌 Токен из localStorage:", token);
-
-      try {
-          const decoded = jwtDecode(token);
-          console.log("📌 Декодированный токен:", decoded);
-          userId = decoded.id;
-      } catch (error) {
-          console.error("❌ Ошибка декодирования токена:", error);
-          localStorage.removeItem('token');
-      }
+        try {
+            const decoded = jwtDecode(token);
+            userId = decoded.id;
+        } catch (error) {
+            console.error("Ошибка токена", error);
+            localStorage.removeItem('token');
+        }
     }
 
-    // Проверяем авторизацию и загружаем пользователей
     useEffect(() => {
         if (!token) return;
 
@@ -55,65 +52,49 @@ function App() {
             localStorage.removeItem('token');
             setIsAuthenticated(false);
         });
-    }, [token]);
 
-    // Загружаем список пользователей
-    const fetchUsers = () => {
-        fetch(`${API_URL}/users`)
-            .then(res => res.json())
-            .then(data => {
-                console.log("📌 Список пользователей:", data);
-                setUsers(data.filter(user => user.id !== userId)); // Исключаем самого себя
-            })
-            .catch(err => console.error("❌ Ошибка загрузки пользователей:", err));
-    };
-
-    // Создаём или открываем диалог
-    const startChat = async (otherUserId) => {
-      console.log("📌 Создание диалога между:", { userId, otherUserId });
-  
-      if (!userId || !otherUserId) {
-          console.error("❌ Ошибка: userId или otherUserId отсутствуют");
-          return;
-      }
-  
-      try {
-          const response = await fetch(`${API_URL}/dialogs`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ user1Id: userId, user2Id: otherUserId }) // Исправлено!
-          });
-  
-          const data = await response.json();
-          console.log("📌 Открыт диалог ID:", data.dialogId);
-  
-          if (!data.dialogId) {
-              console.error("❌ Ошибка: сервер не вернул dialogId");
-              return;
-          }
-  
-          setCurrentDialog(data.dialogId);
-          socket.emit('joinDialog', data.dialogId);
-          fetch(`${API_URL}/dialogs/${data.dialogId}/messages`)
-              .then(res => res.json())
-              .then(data => setMessages(data));
-      } catch (error) {
-          console.error("❌ Ошибка создания диалога:", error);
-      }
-  };
-
-    // Получение сообщений WebSocket
-    useEffect(() => {
-        socket.on('privateMessage', (data) => {
+        socket.on("privateMessage", (data) => {
             setMessages(prev => [...prev, data]);
         });
 
         return () => {
-            socket.off('privateMessage');
+            socket.off("privateMessage");
         };
     }, []);
 
-    // Отправка сообщения
+    const fetchUsers = () => {
+        fetch(`${API_URL}/users`)
+            .then(res => res.json())
+            .then(data => {
+                setUsers(data.filter(user => user.id !== userId)); // Исключаем самого себя
+            })
+            .catch(err => console.error("Ошибка загрузки пользователей", err));
+    };
+
+    const startChat = async (otherUserId) => {
+        if (!userId || !otherUserId) return;
+
+        try {
+            const response = await fetch(`${API_URL}/dialogs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user1Id: userId, user2Id: otherUserId })
+            });
+
+            const data = await response.json();
+            if (!data.dialogId) return;
+
+            setCurrentDialog(data.dialogId);
+            socket.emit('joinDialog', data.dialogId);
+
+            fetch(`${API_URL}/dialogs/${data.dialogId}/messages`)
+                .then(res => res.json())
+                .then(data => setMessages(data));
+        } catch (error) {
+            console.error("Ошибка создания диалога:", error);
+        }
+    };
+
     const sendMessage = () => {
         if (message.trim() && currentDialog) {
             socket.emit('privateMessage', { dialogId: currentDialog, text: message });
@@ -121,7 +102,6 @@ function App() {
         }
     };
 
-    // Регистрация пользователя
     const register = async () => {
         const response = await fetch(`${API_URL}/register`, {
             method: "POST",
@@ -132,7 +112,6 @@ function App() {
         alert(data.message);
     };
 
-    // Вход в систему
     const login = async () => {
         const response = await fetch(`${API_URL}/login`, {
             method: "POST",
@@ -149,7 +128,6 @@ function App() {
         }
     };
 
-    // Выход
     const logout = () => {
         localStorage.removeItem('token');
         setIsAuthenticated(false);
@@ -171,22 +149,31 @@ function App() {
                     <div style={{ width: '30%', borderRight: '1px solid gray', padding: '10px' }}>
                         <h3>🔹 Пользователи</h3>
                         <ul>
-                    {users.map(user => (
-                        <li key={user.id}>
-                            {user.username}
-                            <button onClick={() => setActiveCallUser(user.id)}>📞</button>
-                        </li>
-                    ))}
-                </ul>
+                            {users.length > 0 ? (
+                                users.map(user => (
+                                    <li key={user.id}>
+                                        {user.username}
+                                        <button onClick={() => startChat(user.id)}>💬</button>
+                                        <button onClick={() => setActiveCallUser(user.id)}>📞</button> {/* Кнопка вызова */}
+                                    </li>
+                                ))
+                            ) : (
+                                <p>Нет доступных пользователей</p>
+                            )}
+                        </ul>
                         <button onClick={logout} style={{ marginTop: '10px' }}>Выйти</button>
                     </div>
 
                     {/* Чат справа */}
                     <div style={{ width: '70%', padding: '10px' }}>
-                    {activeCallUser && (
-                    <CallComponent socket={socket} userId={userId} targetUserId={activeCallUser} onEndCall={() => setActiveCallUser(null)} />
-                )}
-                        {currentDialog ? (
+                        {activeCallUser ? (
+                            <CallComponent 
+                                socket={socket} 
+                                userId={userId} 
+                                targetUserId={activeCallUser} 
+                                onEndCall={() => setActiveCallUser(null)} 
+                            />
+                        ) : currentDialog ? (
                             <>
                                 <h3>💬 Диалог #{currentDialog}</h3>
                                 <div style={{ border: '1px solid gray', height: '400px', overflowY: 'scroll', padding: '10px' }}>
