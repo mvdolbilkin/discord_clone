@@ -7,7 +7,7 @@ const { Op } = require('sequelize'); // ✅ Добавляем импорт Op
 const { sequelize, User, Message, Dialog } = require('./database');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const jwtDecode = require('jwt-decode');
+const { jwtDecode } = require('jwt-decode');
 const app = express();
 const PORT = 8080;
 const SECRET_KEY = "c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed961b381e6b2d3082eb7879429a616a46df67d6ce76d5d647c29c6b989bbb4c04b8d64"; // ❗ Заменить на переменную окружения в продакшене!
@@ -185,13 +185,18 @@ io.on("connection", (socket) => {
     setInterval(() => {
         console.log("📌 Активные сокеты:", Object.keys(io.sockets.sockets));
     }, 5000);
-    const userId = socket.handshake.auth?.token ? jwtDecode(socket.handshake.auth.token).id : null;
+    const token = socket.handshake.auth?.token;
 
-    if (userId) {
-        userSockets.set(userId, socket.id);
-        console.log(`✅ Пользователь ${userId} подключился: ${socket.id}`);
+    let userId = null;
+    if (token) {
+        try {
+            const decoded = jwtDecode(token);
+            userId = decoded.id;
+            console.log(`✅ Пользователь ${userId} подключился (Socket ID: ${socket.id})`);
+        } catch (error) {
+            console.error("❌ Ошибка декодирования токена:", error);
+        }
     }
-
     socket.emit("loadMessages", messages);
 
     socket.on("joinDialog", (dialogId) => {
