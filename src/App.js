@@ -1,13 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
-// Подключение к серверу WebSocket
 const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [token, setToken] = useState(localStorage.getItem('token') || '');
     const [messages, setMessages] = useState([]);
     const [message, setMessage] = useState('');
     const [inCall, setInCall] = useState(false);
@@ -19,67 +15,56 @@ function App() {
     const iceCandidatesQueue = useRef([]);
 
     useEffect(() => {
-        if (token) {
-            socket.on('loadMessages', (msgs) => setMessages(msgs));
-            socket.on('message', (data) => setMessages((prev) => [...prev, data]));
+        socket.on('incomingCall', (data) => {
+            console.log("📞 Входящий звонок", data);
+            if (!data.signal || !data.signal.type) {
+                console.error("❌ Ошибка: некорректный формат SDP при звонке", data);
+                return;
+            }
+            setIncomingCall(true);
+            setCallerSignal(data.signal);
+        });
 
-            socket.on('incomingCall', (data) => {
-                console.log("📞 Входящий звонок", data);
-                setIncomingCall(true);
-                setCallerSignal(data.signal);
-            });
-
-            socket.on('callAccepted', async (signal) => {
-                console.log("✅ Звонок принят, устанавливаем RemoteDescription", signal);
-                if (peerConnection.current) {
-                    try {
-                        if (!signal || !signal.type) {
-                            console.error("❌ Ошибка: Неверный формат SDP-сигнала");
-                            return;
-                        }
-                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
-
-                        // 🔹 Добавляем отложенные ICE-кандидаты
-                        while (iceCandidatesQueue.current.length > 0) {
-                            const candidate = iceCandidatesQueue.current.shift();
-                            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                        }
-                    } catch (error) {
-                        console.error("❌ Ошибка setRemoteDescription:", error);
+        socket.on('callAccepted', async (signal) => {
+            console.log("✅ Звонок принят, устанавливаем RemoteDescription", signal);
+            if (peerConnection.current) {
+                try {
+                    if (!signal || !signal.type) {
+                        console.error("❌ Ошибка: Неверный формат SDP-сигнала", signal);
+                        return;
                     }
-                }
-            });
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
 
-            socket.on('iceCandidate', async (candidate) => {
-                console.log("✅ Получен ICE-кандидат", candidate);
-                if (peerConnection.current && peerConnection.current.remoteDescription) {
-                    try {
+                    while (iceCandidatesQueue.current.length > 0) {
+                        const candidate = iceCandidatesQueue.current.shift();
                         await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                    } catch (error) {
-                        console.error("❌ Ошибка addIceCandidate:", error);
                     }
-                } else {
-                    console.log("🟡 Ожидаем установки RemoteDescription, добавляем ICE-кандидат в очередь");
-                    iceCandidatesQueue.current.push(candidate);
+                } catch (error) {
+                    console.error("❌ Ошибка setRemoteDescription:", error);
                 }
-            });
+            }
+        });
 
-            return () => {
-                socket.off('message');
-                socket.off('loadMessages');
-                socket.off('incomingCall');
-                socket.off('callAccepted');
-                socket.off('iceCandidate');
-            };
-        }
-    }, [token]);
+        socket.on('iceCandidate', async (candidate) => {
+            console.log("✅ Получен ICE-кандидат", candidate);
+            if (peerConnection.current && peerConnection.current.remoteDescription) {
+                try {
+                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (error) {
+                    console.error("❌ Ошибка addIceCandidate:", error);
+                }
+            } else {
+                console.log("🟡 Ожидаем установки RemoteDescription, добавляем ICE-кандидат в очередь");
+                iceCandidatesQueue.current.push(candidate);
+            }
+        });
 
-    const sendMessage = () => {
-        if (message.trim()) {
-            socket.emit('message', { text: message });
-            setMessage('');
-        }
-    };
+        return () => {
+            socket.off('incomingCall');
+            socket.off('callAccepted');
+            socket.off('iceCandidate');
+        };
+    }, []);
 
     const startCall = async () => {
         setInCall(true);
@@ -153,7 +138,6 @@ function App() {
         await peerConnection.current.setLocalDescription(answer);
         socket.emit('answerCall', { signal: answer });
 
-        // 🔹 Добавляем отложенные ICE-кандидаты
         while (iceCandidatesQueue.current.length > 0) {
             const candidate = iceCandidatesQueue.current.shift();
             await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
@@ -162,46 +146,11 @@ function App() {
 
     return (
         <div>
-            <h1>Чат + Видеозвонки</h1>
-
-            {!token ? (
-                <div>
-                    <input type="text" placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
-                    <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
-                    <button onClick={() => alert("Регистрация временно отключена")}>Регистрация</button>
-                    <button onClick={() => alert("Вход временно отключен")}>Вход</button>
-                </div>
-            ) : (
-                <>
-                    <div>
-                        <h2>💬 Чат</h2>
-                        <div>
-                            {messages.map((msg, index) => (
-                                <p key={index}><strong>Пользователь:</strong> {msg.text}</p>
-                            ))}
-                        </div>
-                        <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Введите сообщение" />
-                        <button onClick={sendMessage}>Отправить</button>
-                    </div>
-
-                    {incomingCall && (
-                        <div>
-                            <p>📞 Входящий звонок...</p>
-                            <button onClick={acceptCall}>Принять</button>
-                        </div>
-                    )}
-
-                    <button onClick={startCall} disabled={inCall}>Позвонить</button>
-
-                    <div>
-                        <h2>📹 Ваше видео</h2>
-                        <video ref={myVideo} autoPlay playsInline style={{ width: '300px', border: '1px solid black' }} />
-
-                        <h2>📹 Видео собеседника</h2>
-                        <video ref={userVideo} autoPlay playsInline style={{ width: '300px', border: '1px solid red' }} />
-                    </div>
-                </>
-            )}
+            <h1>📞 Видеозвонки</h1>
+            {incomingCall && <button onClick={acceptCall}>Принять звонок</button>}
+            <button onClick={startCall} disabled={inCall}>Позвонить</button>
+            <video ref={myVideo} autoPlay playsInline />
+            <video ref={userVideo} autoPlay playsInline />
         </div>
     );
 }
