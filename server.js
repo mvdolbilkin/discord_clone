@@ -140,8 +140,8 @@ io.on('connection', (socket) => {
 });
 // 📌 **Запуск сервера**
 const PORT = 8080;
-app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
+app.listen(3000, () => {
+    console.log(`Сервер запущен на порту ${3000}`);
 });
 server.listen(PORT, async () => {
     await sequelize.authenticate();
