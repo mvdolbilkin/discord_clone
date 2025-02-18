@@ -4,151 +4,110 @@ import io from 'socket.io-client';
 const socket = io('wss://discordclone.duckdns.org', { transports: ['websocket', 'polling'] });
 
 function App() {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [token, setToken] = useState(localStorage.getItem('token') || '');
+    const [messages, setMessages] = useState([]);
+    const [message, setMessage] = useState('');
     const [inCall, setInCall] = useState(false);
     const [incomingCall, setIncomingCall] = useState(false);
     const [callerSignal, setCallerSignal] = useState(null);
     const myVideo = useRef();
     const userVideo = useRef();
     const peerConnection = useRef(null);
-    const iceCandidatesQueue = useRef([]);
 
     useEffect(() => {
-        socket.on('incomingCall', (data) => {
-            console.log("📞 Входящий звонок", data);
-            if (!data.signal || !data.signal.type) {
-                console.error("❌ Ошибка: некорректный формат SDP при звонке", data);
-                return;
-            }
-            setIncomingCall(true);
-            setCallerSignal(data.signal);
-        });
-
-        socket.on('callAccepted', async (data) => {
-            console.log("✅ Звонок принят, устанавливаем RemoteDescription", data.signal);
-            if (peerConnection.current) {
-                try {
-                    if (!data.signal || !data.signal.type) {
-                        console.error("❌ Ошибка: Неверный формат SDP-сигнала", data.signal);
-                        return;
-                    }
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal));
-
-                    while (iceCandidatesQueue.current.length > 0) {
-                        const candidate = iceCandidatesQueue.current.shift();
-                        await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                    }
-                } catch (error) {
-                    console.error("❌ Ошибка setRemoteDescription:", error);
+        if (token) {
+            socket.on('loadMessages', (msgs) => setMessages(msgs));
+            socket.on('message', (data) => setMessages((prev) => [...prev, data]));
+            socket.on('incomingCall', (data) => {
+                setIncomingCall(true);
+                setCallerSignal(data.signal);
+            });
+            socket.on('callAccepted', async (signal) => {
+                if (peerConnection.current) {
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal));
                 }
-            }
-        });
-
-        socket.on('iceCandidate', async (candidate) => {
-            console.log("✅ Получен ICE-кандидат", candidate);
-            if (peerConnection.current && peerConnection.current.remoteDescription) {
-                try {
+            });
+            socket.on('iceCandidate', async (candidate) => {
+                if (peerConnection.current) {
                     await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                } catch (error) {
-                    console.error("❌ Ошибка addIceCandidate:", error);
                 }
-            } else {
-                console.log("🟡 Ожидаем установки RemoteDescription, добавляем ICE-кандидат в очередь");
-                iceCandidatesQueue.current.push(candidate);
-            }
+            });
+
+            return () => {
+                socket.off('message');
+                socket.off('loadMessages');
+                socket.off('incomingCall');
+                socket.off('callAccepted');
+                socket.off('iceCandidate');
+            };
+        }
+    }, [token]);
+
+    const register = async () => {
+        const response = await fetch('https://discordclone.duckdns.org/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
-
-        return () => {
-            socket.off('incomingCall');
-            socket.off('callAccepted');
-            socket.off('iceCandidate');
-        };
-    }, []);
-
-    const startCall = async () => {
-        setInCall(true);
-        console.log("📞 Начало звонка");
-
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        myVideo.current.srcObject = stream;
-
-        peerConnection.current = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-        });
-
-        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
-
-        peerConnection.current.ontrack = (event) => {
-            console.log("🎥 Видео от собеседника");
-            userVideo.current.srcObject = event.streams[0];
-        };
-
-        peerConnection.current.onicecandidate = (event) => {
-            if (event.candidate) {
-                console.log("📡 Отправка ICE-кандидата");
-                socket.emit("iceCandidate", event.candidate);
-            }
-        };
-
-        const offer = await peerConnection.current.createOffer();
-        await peerConnection.current.setLocalDescription(offer);
-        socket.emit('callUser', { signal: offer });
+        const data = await response.json();
+        alert(data.message);
     };
 
-    const acceptCall = async () => {
-        setInCall(true);
-        setIncomingCall(false);
-        console.log("📞 Принимаем звонок");
-
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        myVideo.current.srcObject = stream;
-
-        peerConnection.current = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    const login = async () => {
+        const response = await fetch('https://discordclone.duckdns.org/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
-
-        stream.getTracks().forEach(track => peerConnection.current.addTrack(track, stream));
-
-        peerConnection.current.ontrack = (event) => {
-            console.log("🎥 Видео от собеседника");
-            userVideo.current.srcObject = event.streams[0];
-        };
-
-        peerConnection.current.onicecandidate = (event) => {
-            if (event.candidate) {
-                console.log("📡 Отправка ICE-кандидата");
-                socket.emit("iceCandidate", event.candidate);
-            }
-        };
-
-        if (!callerSignal || !callerSignal.type) {
-            console.error("❌ Ошибка: Неверный формат SDP-сигнала", callerSignal);
-            return;
+        const data = await response.json();
+        if (data.token) {
+            localStorage.setItem('token', data.token);
+            setToken(data.token);
+        } else {
+            alert(data.message);
         }
+    };
 
-        try {
-            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(callerSignal));
-        } catch (error) {
-            console.error("❌ Ошибка setRemoteDescription:", error);
-            return;
-        }
-
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket.emit('answerCall', { signal: answer });
-
-        while (iceCandidatesQueue.current.length > 0) {
-            const candidate = iceCandidatesQueue.current.shift();
-            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+    const sendMessage = () => {
+        if (message.trim()) {
+            socket.emit('message', { text: message });
+            setMessage('');
         }
     };
 
     return (
         <div>
-            <h1>📞 Видеозвонки</h1>
-            {incomingCall && <button onClick={acceptCall}>Принять звонок</button>}
-            <button onClick={startCall} disabled={inCall}>Позвонить</button>
-            <video ref={myVideo} autoPlay playsInline />
-            <video ref={userVideo} autoPlay playsInline />
+            <h1>Авторизация</h1>
+            {!token ? (
+                <div>
+                    <input type="text" placeholder="Логин" value={username} onChange={(e) => setUsername(e.target.value)} />
+                    <input type="password" placeholder="Пароль" value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <button onClick={register}>Регистрация</button>
+                    <button onClick={login}>Вход</button>
+                </div>
+            ) : (
+                <>
+                    <h1>Чат + Видеозвонки</h1>
+                    <div>
+                        <h2>💬 Чат</h2>
+                        <div>
+                            {messages.map((msg, index) => (
+                                <p key={index}><strong>Пользователь:</strong> {msg.text}</p>
+                            ))}
+                        </div>
+                        <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Введите сообщение" />
+                        <button onClick={sendMessage}>Отправить</button>
+                    </div>
+                    {incomingCall && (
+                        <div>
+                            <p>📞 Входящий звонок...</p>
+                            <button onClick={() => setIncomingCall(false)}>Принять</button>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
 }
