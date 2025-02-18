@@ -9,6 +9,7 @@ const SECRET_KEY = 'c366fd93a111ccb4fe1c8cb002c7742f6740a0a09aa7b54e215fcea05ed9
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
     cors: {
         origin: '*'
@@ -16,10 +17,10 @@ const io = new Server(server, {
 });
 const cors = require('cors');
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'client', 'build')));
+app.use(express.static(path.join(__dirname, 'build')));
 app.use(express.json()); // Разбираем JSON-запросы
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
 // 📌 **Регистрация пользователя**
