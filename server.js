@@ -117,18 +117,22 @@ io.on('connection', (socket) => {
         socket.username = username;
         io.emit('userConnected', { id: socket.id, username });
     });
-// 📞 Обработка исходящего звонка
-    socket.on('callUser', (data) => {
-        console.log(`Звонок от ${socket.id} к другому пользователю`);
 
-        io.emit('incomingCall', { from: socket.id, signal: data.signal });
+    socket.on("callUser", (data) => {
+        socket.broadcast.emit("incomingCall", { from: socket.id, signal: data.signal });
     });
 
-    // 📞 Обработка принятия звонка
-    socket.on('answerCall', (data) => {
-        console.log(`Пользователь ${socket.id} принял звонок`);
+    socket.on("answerCall", (data) => {
+        socket.broadcast.emit("callAccepted", { signal: data.signal });
+    });
 
-        io.emit('callAccepted', { signal: data.signal });
+    // 🔹 Передача ICE-кандидатов
+    socket.on("iceCandidate", (candidate) => {
+        socket.broadcast.emit("iceCandidate", candidate);
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`🔴 Пользователь отключился: ${socket.id}`);
     });
     socket.on('message', async (data) => {
         const message = await Message.create({ username: socket.username, text: data.text });
