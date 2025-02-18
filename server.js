@@ -2,19 +2,64 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const { sequelize, User } = require('./database'); // Подключаем базу данных
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 8080;
+const SECRET_KEY = "supersecretkey"; // Хранить в .env файле
+
+app.use(express.json());
+app.use(cors());
 
 // Раздаем статические файлы (React-клиент)
 app.use(express.static(path.join(__dirname, 'build')));
 
-// Обрабатываем все неизвестные маршруты
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+// Регистрация пользователя
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Пользователь уже существует' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await User.create({ username, password: hashedPassword });
+
+        return res.status(201).json({ message: 'Регистрация успешна' });
+    } catch (error) {
+        return res.status(500).json({ message: 'Ошибка сервера', error });
+    }
 });
 
-// Создаем HTTP-сервер и WebSocket
+// Вход пользователя
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        const user = await User.findOne({ where: { username } });
+        if (!user) {
+            return res.status(400).json({ message: 'Неверные учетные данные' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Неверные учетные данные' });
+        }
+
+        const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+
+        return res.status(200).json({ message: 'Вход успешен', token });
+    } catch (error) {
+        return res.status(500).json({ message: 'Ошибка сервера', error });
+    }
+});
+
+// Создаем HTTP-сервер
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
@@ -29,30 +74,22 @@ let messages = [];
 io.on("connection", (socket) => {
     console.log(`🔵 Пользователь подключился: ${socket.id}`);
 
-    // Отправляем историю сообщений новому пользователю
     socket.emit("loadMessages", messages);
 
-    // Обрабатываем отправку сообщений
     socket.on("message", (data) => {
-        console.log(`📩 Сообщение от ${socket.id}:`, data);
-        messages.push(data); // Добавляем в историю сообщений
-        io.emit("message", data); // Отправляем всем клиентам
+        messages.push(data);
+        io.emit("message", data);
     });
 
-    // Обрабатываем WebRTC звонки
     socket.on("callUser", (data) => {
-        console.log(`📞 Исходящий звонок от ${socket.id}`);
         socket.broadcast.emit("incomingCall", { from: socket.id, signal: data.signal });
     });
 
     socket.on("answerCall", (data) => {
-        console.log(`📞 Звонок принят пользователем ${socket.id}`);
         socket.broadcast.emit("callAccepted", { signal: data.signal });
     });
 
-    // Передача ICE-кандидатов
     socket.on("iceCandidate", (candidate) => {
-        console.log(`📡 Получен ICE-кандидат:`, candidate);
         socket.broadcast.emit("iceCandidate", candidate);
     });
 
@@ -61,6 +98,7 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
+    await sequelize.sync(); // Подключение к базе данных
     console.log(`✅ Сервер запущен на http://85.192.25.173:${PORT}`);
 });
