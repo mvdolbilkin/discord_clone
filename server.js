@@ -16,8 +16,11 @@ const io = new Server(server, {
 });
 const cors = require('cors');
 app.use(cors());
-
+app.use(express.static(path.join(__dirname, 'client', 'build')));
 app.use(express.json()); // Разбираем JSON-запросы
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+});
 
 // 📌 **Регистрация пользователя**
 app.post('/register', async (req, res) => {
@@ -137,6 +140,9 @@ io.on('connection', (socket) => {
 });
 // 📌 **Запуск сервера**
 const PORT = 8080;
+app.listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+});
 server.listen(PORT, async () => {
     await sequelize.authenticate();
     console.log(`Сервер запущен на http://85.192.25.173:${PORT}`);
